@@ -8,9 +8,12 @@ import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.support.v7.widget.ButtonBarLayout;
 import android.text.Editable;
+import android.view.ContextMenu;
 import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
@@ -25,12 +28,16 @@ import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
 
+    private static final int EDIT = 0, DELETE = 1;
+
     EditText Name, PhoneNum, Email, Address;
     ImageView contactImageImgView;
     List<Contact> Contacts = new ArrayList<Contact>();
     ListView contactListView;
     Uri imageUri = Uri.parse("android.resource://com.example.epinesis_.contact_manager/drawable/no_image.png");
     DatabaseHandler dbHandler;
+    int longClickedItemIndex;
+    ArrayAdapter<Contact> contactAdapter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -45,6 +52,15 @@ public class MainActivity extends AppCompatActivity {
         contactListView = (ListView)findViewById(R.id.listView);
         contactImageImgView =(ImageView)findViewById(R.id.imgViewContactImage);
         dbHandler = new DatabaseHandler(getApplicationContext());
+        registerForContextMenu(contactListView);
+        contactListView.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
+            @Override
+            public boolean onItemLongClick(AdapterView<?> parent, View view, int position, long id) {
+
+                longClickedItemIndex = position;
+                return false;
+            }
+        });
 
         TabHost tabhost = (TabHost)findViewById(R.id.tabHost);
         tabhost.setup();
@@ -64,10 +80,7 @@ public class MainActivity extends AppCompatActivity {
         NewContact.setOnClickListener(new View.OnClickListener()
         {
             public void onClick(View view) {
-                if(!Name.getText().toString().trim().isEmpty() &&
-                        !PhoneNum.getText().toString().trim().isEmpty()&&
-                        !Email.getText().toString().trim().isEmpty()&&
-                        !Address.getText().toString().trim().isEmpty()){
+                if(!Name.getText().toString().trim().isEmpty()){
 
                     Contact contact = new Contact(dbHandler.getContactCount(), String.valueOf(Name.getText()), String.valueOf(PhoneNum.getText().toString()),
                             String.valueOf(Email.getText()), String.valueOf(Address.getText().toString()), imageUri);
@@ -75,19 +88,18 @@ public class MainActivity extends AppCompatActivity {
 
                         dbHandler.createContact(contact);
                         Contacts.add(contact);
+                        contactAdapter.notifyDataSetChanged();
                         Toast.makeText(getApplicationContext(), Name.getText().toString() + "'s name has been added to your contacts!", Toast.LENGTH_SHORT).show();
                         return;
                     }
                     Toast.makeText(getApplicationContext(),Name.getText() + "Already Exists", Toast.LENGTH_SHORT).show();
                 }
                 else
-                    Toast.makeText(getApplicationContext(), "please fill all fields!", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(getApplicationContext(), "please enter a name!", Toast.LENGTH_SHORT).show();
 
             }
 
         });
-
-
 
         contactImageImgView.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -103,6 +115,28 @@ public class MainActivity extends AppCompatActivity {
 
             populateList();
     }
+
+    public void onCreateContextMenu(ContextMenu menu, View view, ContextMenu.ContextMenuInfo menuInfo){
+        super.onCreateContextMenu(menu, view, menuInfo);
+        menu.setHeaderIcon(R.drawable.pencil_icon);
+        menu.setHeaderTitle("Contact Options");
+        menu.add(Menu.NONE, EDIT, menu.NONE, "Edit Contact");
+        menu.add(Menu.NONE, DELETE, menu.NONE, "Delete Contact");
+    }
+
+    public boolean onContextItemSelected(MenuItem item){
+        switch (item.getItemId()){
+            case EDIT:
+                break;
+            case DELETE:
+                dbHandler.deleteContact(Contacts.get(longClickedItemIndex));
+                Contacts.remove(longClickedItemIndex);
+                contactAdapter.notifyDataSetChanged();
+                break;
+        }
+        return super.onContextItemSelected(item);
+    }
+
     private boolean contactExists(Contact contact){
         String name = contact.getName();
         int contactCount = Contacts.size();
@@ -124,8 +158,8 @@ public class MainActivity extends AppCompatActivity {
     }
     private void populateList()
     {
-        ArrayAdapter<Contact> adapter = new ContactListAdapter();
-        contactListView.setAdapter(adapter);
+        contactAdapter = new ContactListAdapter();
+        contactListView.setAdapter(contactAdapter);
     }
 
 
